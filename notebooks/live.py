@@ -12,14 +12,14 @@ parameters, forward_fn, tokenizer, config = get_pretrained_model(
 forward_fn = hk.transform(forward_fn)
 
 # Get data and tokenize it
-sequences = ["ATTCCGATTCCGATTCCG", "ATTTCTCTCTCTCTCTGAGATCGATCGATCGAT"]
+sequences = ["NGGACAGCGG", "NGGACGGCGG"]
 tokens_ids = [b[1] for b in tokenizer.batch_tokenize(sequences)]
 tokens = jnp.asarray(tokens_ids, dtype=jnp.int32)
 
 # Initialize random key
 random_key = jax.random.PRNGKey(0)
 
-# Infer
+# Inference
 outs = forward_fn.apply(parameters, random_key, tokens)
 
 # Get embeddings at layer 20
