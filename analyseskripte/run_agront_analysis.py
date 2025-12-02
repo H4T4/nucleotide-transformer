@@ -193,7 +193,7 @@ def main():
         rng_key=rng,
         layer_to_save=args.layer,
         pooling=args.pooling,
-        batch_size=256,
+        batch_size=512,
     )
 
     # 4) Cosine-Similarity-Matrix und kurze Statistik

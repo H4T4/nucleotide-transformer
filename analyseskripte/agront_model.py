@@ -98,10 +98,13 @@ def get_sequence_embeddings(
     all_embs: List[np.ndarray] = []
     n = len(sequences)
     print(f"Berechne Embeddings für {n} Sequenzen ...")
+    num_batches = (n + batch_size - 1) // batch_size
 
-    for start in range(0, n, batch_size):
+    for batch_idx, start in enumerate(range(0, n, batch_size)):
         end = min(start + batch_size, n)
         batch_seqs = sequences[start:end]
+
+        print(f"  Batch {batch_idx+1}/{num_batches} (Seq {start}–{end-1})")
 
         token_batch = tokenizer.batch_tokenize(batch_seqs)
         token_ids = [b[1] for b in token_batch]  # b = (token_string, token_ids, ...)
