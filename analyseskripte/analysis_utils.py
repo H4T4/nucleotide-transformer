@@ -61,6 +61,48 @@ def cosine_to_reference(X: np.ndarray, ref_idx: int) -> np.ndarray:
     return dots / norms
 
 
+def euclidean_distance_matrix(X: np.ndarray) -> np.ndarray:
+    """
+    Euklidische Distanz-Matrix für alle Paare in X.
+
+    Parameter
+    ---------
+    X : np.ndarray
+        Shape: (n, d)
+
+    Rückgabewert
+    ------------
+    np.ndarray
+        Shape: (n, n) mit euklidischen Distanzen.
+    """
+    # ||x - y||^2 = ||x||^2 + ||y||^2 - 2 x·y
+    norms_sq = np.sum(X**2, axis=1, keepdims=True)  # (n, 1)
+    dists_sq = norms_sq + norms_sq.T - 2.0 * (X @ X.T)  # (n, n)
+    dists_sq = np.maximum(dists_sq, 0.0)  # numerisch stabil
+    return np.sqrt(dists_sq)
+
+
+def euclidean_to_reference(X: np.ndarray, ref_idx: int) -> np.ndarray:
+    """
+    Euklidische Distanz jedes Vektors in X zu einem Referenzvektor X[ref_idx].
+
+    Parameter
+    ---------
+    X : np.ndarray
+        Shape: (n, d)
+    ref_idx : int
+        Index des Referenzvektors.
+
+    Rückgabewert
+    ------------
+    np.ndarray
+        Shape: (n,), euklidische Distanzen zwischen X[i] und X[ref_idx].
+    """
+    ref = X[ref_idx]  # (d,)
+    diffs = X - ref  # (n, d)
+    return np.linalg.norm(diffs, axis=1)  # (n,)
+
+
 def summarize_matrix(name: str, M: np.ndarray) -> None:
     """
     Gibt einige Kennzahlen für eine Matrix aus (min, max, Mittelwert),
@@ -232,3 +274,25 @@ def plot_cosine_vs_length(
     fig.savefig(output_path)
     plt.close(fig)
     print(f"Cosine-vs-Länge-Plot gespeichert unter: {output_path}")
+
+
+def plot_distance_vs_length(
+    lengths: np.ndarray, dist_to_ref: np.ndarray, ref_length: int, output_path: Path
+) -> None:
+    """
+    Plottet die euklidische Distanz zur Referenzsequenz (z.B. 60 bp)
+    als Funktion der Sequenzlänge.
+    """
+    fig, ax = plt.subplots(figsize=(6, 4))
+
+    ax.plot(lengths, dist_to_ref, marker="o")
+    ax.set_xlabel("Sequenzlänge (bp)")
+    ax.set_ylabel(f"Euklidische Distanz zur Referenz (Länge {ref_length} bp)")
+    ax.set_title("Distanz der Sequenz-Embeddings vs. Kontextlänge")
+
+    ax.grid(True, alpha=0.3)
+
+    fig.tight_layout()
+    fig.savefig(output_path)
+    plt.close(fig)
+    print(f"Distance-vs-Länge-Plot gespeichert unter: {output_path}")

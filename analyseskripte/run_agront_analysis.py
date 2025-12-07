@@ -51,12 +51,15 @@ from agront_model import (
 from analysis_utils import (
     cosine_similarity_matrix,
     cosine_to_reference,
+    euclidean_distance_matrix,  # NEU
+    euclidean_to_reference,  # NEU
     summarize_matrix,
     pca_2d,
     umap_2d,
     plot_pca,
     plot_umap,
     plot_cosine_vs_length,
+    plot_distance_vs_length,  # NEU
 )
 
 
@@ -114,11 +117,27 @@ def main():
     )
 
     # Synthetic-Parameter
-    parser.add_argument("--min-len", type=int, default=6, help="Minimale Sequenzlänge (synthetic).")
-    parser.add_argument("--max-len", type=int, default=120, help="Maximale Sequenzlänge (synthetic).")
-    parser.add_argument("--step", type=int, default=6, help="Schrittweite der Sequenzlängen (synthetic).")
-    parser.add_argument("--num-per-length", type=int, default=1000, help="Anzahl Sequenzen pro Länge (synthetic).")
-    parser.add_argument("--seed", type=int, default=0, help="Random-Seed für Sequenzgenerierung.")
+    parser.add_argument(
+        "--min-len", type=int, default=6, help="Minimale Sequenzlänge (synthetic)."
+    )
+    parser.add_argument(
+        "--max-len", type=int, default=120, help="Maximale Sequenzlänge (synthetic)."
+    )
+    parser.add_argument(
+        "--step",
+        type=int,
+        default=6,
+        help="Schrittweite der Sequenzlängen (synthetic).",
+    )
+    parser.add_argument(
+        "--num-per-length",
+        type=int,
+        default=1000,
+        help="Anzahl Sequenzen pro Länge (synthetic).",
+    )
+    parser.add_argument(
+        "--seed", type=int, default=0, help="Random-Seed für Sequenzgenerierung."
+    )
 
     # FASTA-Parameter
     parser.add_argument(
@@ -196,9 +215,13 @@ def main():
         batch_size=512,
     )
 
-    # 4) Cosine-Similarity-Matrix und kurze Statistik
+    # Cosine-Similarity-Matrix
     cos_mat = cosine_similarity_matrix(X)
     summarize_matrix("GLOBAL Sequenz-Embeddings Cosine-Similarity", cos_mat)
+
+    # Euklidische Distanz-Matrix (optional – groß!)
+    dist_mat = euclidean_distance_matrix(X)
+    summarize_matrix("GLOBAL Sequenz-Embeddings Euclidean Distance", dist_mat)
 
     # 5) Referenzsequenz bestimmen: bevorzugt Länge 60, sonst längste Sequenz
     target_length = 60
@@ -214,6 +237,7 @@ def main():
         )
 
     cos_to_ref = cosine_to_reference(X, ref_idx=ref_idx)
+    dist_to_ref = euclidean_to_reference(X, ref_idx=ref_idx)
 
     # 6) PCA & UMAP berechnen
     X_pca = pca_2d(X)
@@ -241,6 +265,13 @@ def main():
         cos_to_ref=cos_to_ref,
         ref_length=target_length,
         output_path=output_dir / "cosine_vs_length.png",
+    )
+
+    plot_distance_vs_length(
+        lengths=lengths,
+        dist_to_ref=dist_to_ref,
+        ref_length=target_length,
+        output_path=output_dir / "distance_vs_length.png",
     )
 
     print("\nAnalyse abgeschlossen.")
