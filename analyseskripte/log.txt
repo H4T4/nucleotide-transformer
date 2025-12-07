@@ -1,0 +1,70 @@
+CUDA_VISIBLE_DEVICES = 0
+Anzahl sichtbarer CUDA Devices (PyTorch): 1
+Synthetische Sequenzen erzeugt: 20000 (Längen 6..120, Schritt 6)
+Gesamtanzahl Sequenzen: 20000
+Min-Länge: 6, Max-Länge: 120
+Lade Modell '1B_agro_nt' mit max_positions=126 ...
+Downloading model's hyperparameters json file...
+Downloaded model's hyperparameters.
+Downloading model's weights...
+Downloaded model's weights...
+Berechne Embeddings für 20000 Sequenzen ...
+  Batch 1/40 (Seq 0–511)
+  Batch 2/40 (Seq 512–1023)
+  Batch 3/40 (Seq 1024–1535)
+  Batch 4/40 (Seq 1536–2047)
+  Batch 5/40 (Seq 2048–2559)
+  Batch 6/40 (Seq 2560–3071)
+  Batch 7/40 (Seq 3072–3583)
+  Batch 8/40 (Seq 3584–4095)
+  Batch 9/40 (Seq 4096–4607)
+  Batch 10/40 (Seq 4608–5119)
+  Batch 11/40 (Seq 5120–5631)
+  Batch 12/40 (Seq 5632–6143)
+  Batch 13/40 (Seq 6144–6655)
+  Batch 14/40 (Seq 6656–7167)
+  Batch 15/40 (Seq 7168–7679)
+  Batch 16/40 (Seq 7680–8191)
+  Batch 17/40 (Seq 8192–8703)
+  Batch 18/40 (Seq 8704–9215)
+  Batch 19/40 (Seq 9216–9727)
+  Batch 20/40 (Seq 9728–10239)
+  Batch 21/40 (Seq 10240–10751)
+  Batch 22/40 (Seq 10752–11263)
+  Batch 23/40 (Seq 11264–11775)
+  Batch 24/40 (Seq 11776–12287)
+  Batch 25/40 (Seq 12288–12799)
+  Batch 26/40 (Seq 12800–13311)
+  Batch 27/40 (Seq 13312–13823)
+  Batch 28/40 (Seq 13824–14335)
+  Batch 29/40 (Seq 14336–14847)
+  Batch 30/40 (Seq 14848–15359)
+  Batch 31/40 (Seq 15360–15871)
+  Batch 32/40 (Seq 15872–16383)
+  Batch 33/40 (Seq 16384–16895)
+  Batch 34/40 (Seq 16896–17407)
+  Batch 35/40 (Seq 17408–17919)
+  Batch 36/40 (Seq 17920–18431)
+  Batch 37/40 (Seq 18432–18943)
+  Batch 38/40 (Seq 18944–19455)
+  Batch 39/40 (Seq 19456–19967)
+  Batch 40/40 (Seq 19968–19999)
+Fertige Embeddings-Shape: (20000, 1500)
+GLOBAL Sequenz-Embeddings Cosine-Similarity:
+  Shape: (20000, 20000)
+  Min:   0.3587
+  Max:   1.0000
+  Mean:  0.9333
+GLOBAL Sequenz-Embeddings Euclidean Distance:
+  Shape: (20000, 20000)
+  Min:   0.0000
+  Max:   511.6514
+  Mean:  162.7477
+/home/htamm/miniconda3/envs/agront/lib/python3.11/site-packages/umap/umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
+  warn(
+PCA-Plot gespeichert unter: agront_outputs_synthetic/pca_sequence_embeddings.png
+UMAP-Plot gespeichert unter: agront_outputs_synthetic/umap_sequence_embeddings.png
+Cosine-vs-Länge-Plot gespeichert unter: agront_outputs_synthetic/cosine_vs_length.png
+Distance-vs-Länge-Plot gespeichert unter: agront_outputs_synthetic/distance_vs_length.png
+
+Analyse abgeschlossen.
