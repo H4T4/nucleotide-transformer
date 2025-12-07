@@ -31,7 +31,7 @@ python run_agront_analysis.py \
   --max-positions 126 \
   --output-dir agront_outputs_fasta
 """
-
+import sys
 import argparse
 from pathlib import Path
 from typing import List, Tuple
@@ -277,5 +277,38 @@ def main():
     print("\nAnalyse abgeschlossen.")
 
 
+class Tee:
+    def __init__(self, *streams):
+        self.streams = streams
+
+    def write(self, data):
+        for s in self.streams:
+            s.write(data)
+            s.flush()
+
+    def flush(self):
+        for s in self.streams:
+            s.flush()
+
+
 if __name__ == "__main__":
-    main()
+    log_file = open("log.txt", "w")
+
+    # Original-Streams sichern (optional, aber sauber)
+    original_stdout = sys.stdout
+    original_stderr = sys.stderr
+
+    # stdout und stderr auf Tee umbiegen:
+    # -> alles geht sowohl in die Konsole als auch in log.txt
+    sys.stdout = Tee(original_stdout, log_file)
+    sys.stderr = Tee(original_stderr, log_file)
+
+    try:
+        # HIER läuft dein normales Programm
+        main()
+    finally:
+        # Streams wiederherstellen (wichtig, falls das Modul
+        # später noch importiert wird)
+        sys.stdout = original_stdout
+        sys.stderr = original_stderr
+        log_file.close()
