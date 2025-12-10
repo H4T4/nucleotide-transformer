@@ -103,6 +103,99 @@ def euclidean_to_reference(X: np.ndarray, ref_idx: int) -> np.ndarray:
     return np.linalg.norm(diffs, axis=1)  # (n,)
 
 
+def pairwise_cosine_and_distance(
+    emb_group: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Berechnet alle paarweisen Cosine-Similarities und euklidischen Distanzen
+    innerhalb einer kleinen Embedding-Gruppe (z.B. 2–4 Sequenzen).
+
+    emb_group : np.ndarray, Shape (k, d)
+
+    Rückgabe:
+      cos_vals  : 1D-Array aller Cosine-Werte, Länge k*(k-1)/2
+      dist_vals : 1D-Array aller Distanz-Werte, Länge k*(k-1)/2
+    """
+    from typing import Tuple
+
+    k = emb_group.shape[0]
+    if k < 2:
+        return np.array([]), np.array([])
+
+    # Cosine- & Distanz-Matrix auf die kleine Gruppe anwenden
+    cos_mat = cosine_similarity_matrix(emb_group)  # (k, k)
+    dist_mat = euclidean_distance_matrix(emb_group)  # (k, k)
+
+    # Nur obere Dreiecksmatrix ohne Diagonale (i < j)
+    mask = np.triu(np.ones((k, k), dtype=bool), k=1)
+    cos_vals = cos_mat[mask]
+    dist_vals = dist_mat[mask]
+    return cos_vals, dist_vals
+
+
+def compute_snp_stats_by_length(
+    sequences: list[str],
+    lengths: np.ndarray,
+    embeddings: np.ndarray,
+) -> dict[int, dict[str, float]]:
+    """
+    Berechnet pro Sequenzlänge die durchschnittliche Cosine-Similarity und
+    euklidische Distanz zwischen Sequenzen, die sich NUR in der Base in der Mitte
+    unterscheiden (gleiche Flanken = gleiche Template-Sequenz).
+
+    Rückgabe:
+      dict:
+        length -> {
+            "mean_cosine": ...,
+            "mean_distance": ...,
+            "n_pairs": ...,
+        }
+    """
+    results: dict[int, dict[str, float]] = {}
+
+    unique_lengths = np.unique(lengths)
+    for L in unique_lengths:
+        idx_L = np.where(lengths == L)[0]
+        if len(idx_L) == 0:
+            continue
+
+        mid = L // 2
+        # Gruppieren nach Flanken (ohne Mittel-Base)
+        groups: dict[str, list[int]] = {}
+        for i in idx_L:
+            seq = sequences[i]
+            flanks = seq[:mid] + seq[mid + 1 :]  # alles außer der SNP-Position
+            groups.setdefault(flanks, []).append(i)
+
+        all_cos_vals = []
+        all_dist_vals = []
+
+        for flanks, idxs in groups.items():
+            if len(idxs) < 2:
+                # nur eine Variante vorhanden → kein Vergleich möglich
+                continue
+            emb_group = embeddings[idxs, :]  # (k, d) mit k=2..4
+            cos_vals, dist_vals = pairwise_cosine_and_distance(emb_group)
+            if cos_vals.size > 0:
+                all_cos_vals.append(cos_vals)
+                all_dist_vals.append(dist_vals)
+
+        if not all_cos_vals:
+            # keine gültigen Paar-Vergleiche für diese Länge
+            continue
+
+        cos_concat = np.concatenate(all_cos_vals)
+        dist_concat = np.concatenate(all_dist_vals)
+
+        results[int(L)] = {
+            "mean_cosine": float(cos_concat.mean()),
+            "mean_distance": float(dist_concat.mean()),
+            "n_pairs": int(cos_concat.size),
+        }
+
+    return results
+
+
 def summarize_matrix(name: str, M: np.ndarray) -> None:
     """
     Gibt einige Kennzahlen für eine Matrix aus (min, max, Mittelwert),

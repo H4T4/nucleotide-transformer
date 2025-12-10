@@ -51,15 +51,16 @@ from agront_model import (
 from analysis_utils import (
     cosine_similarity_matrix,
     cosine_to_reference,
-    euclidean_distance_matrix,  # NEU
-    euclidean_to_reference,  # NEU
+    euclidean_distance_matrix,
+    euclidean_to_reference,
     summarize_matrix,
     pca_2d,
     umap_2d,
     plot_pca,
     plot_umap,
     plot_cosine_vs_length,
-    plot_distance_vs_length,  # NEU
+    plot_distance_vs_length,
+    compute_snp_stats_by_length,      # NEU
 )
 
 
@@ -218,6 +219,36 @@ def main():
     # Cosine-Similarity-Matrix
     cos_mat = cosine_similarity_matrix(X)
     summarize_matrix("GLOBAL Sequenz-Embeddings Cosine-Similarity", cos_mat)
+
+        # 4b) SNP-Stats: Vergleiche NUR Sequenzen mit gleichen Flanken (SNP in der Mitte)
+    snp_stats = compute_snp_stats_by_length(
+        sequences=sequences,
+        lengths=lengths,
+        embeddings=X,
+    )
+
+    print("\nSNP-Paar-Statistiken pro Sequenzlänge (nur gleiche Flanken, SNP in der Mitte):")
+    for L in sorted(snp_stats.keys()):
+        stats_L = snp_stats[L]
+        print(
+            f"  Länge {L:>3} bp: "
+            f"n_pairs={stats_L['n_pairs']}, "
+            f"mean_cosine={stats_L['mean_cosine']:.4f}, "
+            f"mean_distance={stats_L['mean_distance']:.4f}"
+        )
+"""
+    # Optional: als CSV speichern
+    out_stats = output_dir / "snp_pairwise_stats.csv"
+    with out_stats.open("w") as f:
+        f.write("length,n_pairs,mean_cosine,mean_distance\n")
+        for L in sorted(snp_stats.keys()):
+            sL = snp_stats[L]
+            f.write(
+                f"{L},{sL['n_pairs']},{sL['mean_cosine']:.6f},{sL['mean_distance']:.6f}\n"
+            )
+    print(f"SNP-Paar-Statistiken gespeichert unter: {out_stats}")
+
+"""
 
     # Euklidische Distanz-Matrix (optional – groß!)
     dist_mat = euclidean_distance_matrix(X)
