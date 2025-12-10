@@ -25,9 +25,13 @@ def generate_snp_variant_sequences(
     Generiert zufällige Sequenzen mit einem SNP in der Mitte für mehrere Längen.
 
     Für jede Länge L in [min_len, max_len] mit Schrittweite step:
-      - es werden per_length Sequenzen erzeugt
-      - der Nukleotid in der Mitte wird systematisch auf A/C/G/T gesetzt
-        (per_length // 4 Sequenzen pro Variante)
+      - es werden per_length Sequenzen erzeugt (ungefähr; per_length sollte
+        durch 4 teilbar sein)
+      - es werden zunächst T = per_length // 4 "Template"-Sequenzen erzeugt
+        (vollständige zufällige Sequenz)
+      - zu jedem Template werden 4 Varianten erzeugt, bei denen NUR die Base
+        in der Mitte auf A / C / G / T gesetzt wird
+        -> gleiche Flanken, unterschiedliche Mittelbase
 
     Rückgabe
     --------
@@ -41,12 +45,26 @@ def generate_snp_variant_sequences(
 
     for L in range(min_len, max_len + 1, step):
         random.seed(seed + L)
-        per_allele = per_length // len(NUCLEOTIDES)
+
+        # wie viele Templates pro Länge? (4 Varianten pro Template)
+        templates_per_length = per_length // len(NUCLEOTIDES)
+        remainder = per_length % len(NUCLEOTIDES)
+        if remainder != 0:
+            # Wir ignorieren den Rest, damit exakt 4 Varianten pro Template entstehen.
+            print(
+                f"Warnung: per_length={per_length} ist nicht durch 4 teilbar. "
+                f"Für Länge {L} werden nur {templates_per_length * 4} Sequenzen erzeugt."
+            )
+
         mid = L // 2
 
-        for nuc in NUCLEOTIDES:
-            for _ in range(per_allele):
-                seq_list = [random.choice(NUCLEOTIDES) for _ in range(L)]
+        for _ in range(templates_per_length):
+            # zufällige Template-Sequenz
+            template = [random.choice(NUCLEOTIDES) for _ in range(L)]
+
+            # 4 Varianten mit identischen Flanken, aber unterschiedlicher Base in der Mitte
+            for nuc in NUCLEOTIDES:
+                seq_list = template.copy()
                 seq_list[mid] = nuc
                 seq = "".join(seq_list)
                 sequences.append(seq)
@@ -89,7 +107,9 @@ def read_fasta_sequences(path: Path) -> List[str]:
     return sequences
 
 
-def collect_all_sequences(fasta_dir: Path) -> Tuple[List[str], List[int], Dict[int, Tuple[str, int]]]:
+def collect_all_sequences(
+    fasta_dir: Path,
+) -> Tuple[List[str], List[int], Dict[int, Tuple[str, int]]]:
     """
     Liest alle FASTA-Dateien in einem Verzeichnis und gibt Sequenzen + Längen zurück.
 

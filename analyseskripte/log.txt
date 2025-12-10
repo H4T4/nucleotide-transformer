@@ -1,4 +1,6 @@
 CUDA_VISIBLE_DEVICES = 0
+/home/htamm/miniconda3/envs/agront/lib/python3.11/site-packages/torch/cuda/__init__.py:827: UserWarning: Can't initialize NVML
+  warnings.warn("Can't initialize NVML")
 Anzahl sichtbarer CUDA Devices (PyTorch): 1
 Synthetische Sequenzen erzeugt: 20000 (Längen 6..120, Schritt 6)
 Gesamtanzahl Sequenzen: 20000
@@ -50,21 +52,45 @@ Berechne Embeddings für 20000 Sequenzen ...
   Batch 39/40 (Seq 19456–19967)
   Batch 40/40 (Seq 19968–19999)
 Fertige Embeddings-Shape: (20000, 1500)
+
+Fertige Embeddings-Shape: (N=20000, hidden_dim=1500)
 GLOBAL Sequenz-Embeddings Cosine-Similarity:
   Shape: (20000, 20000)
-  Min:   0.3587
+  Min:   0.1604
   Max:   1.0000
-  Mean:  0.9333
+  Mean:  0.9331
 GLOBAL Sequenz-Embeddings Euclidean Distance:
   Shape: (20000, 20000)
   Min:   0.0000
-  Max:   511.6514
-  Mean:  162.7477
+  Max:   580.0485
+  Mean:  162.8196
+
+SNP-Paar-Statistiken pro Sequenzlänge (gleiche Flanken, SNP in der Mitte):
+  Länge   6 bp: n_pairs=2156, mean_cosine=0.9460, mean_distance=116.3124
+  Länge  12 bp: n_pairs=1500, mean_cosine=0.9625, mean_distance=106.4047
+  Länge  18 bp: n_pairs=1500, mean_cosine=0.9681, mean_distance=102.1552
+  Länge  24 bp: n_pairs=1500, mean_cosine=0.9837, mean_distance=78.8371
+  Länge  30 bp: n_pairs=1500, mean_cosine=0.9866, mean_distance=71.7745
+  Länge  36 bp: n_pairs=1500, mean_cosine=0.9876, mean_distance=67.5681
+  Länge  42 bp: n_pairs=1500, mean_cosine=0.9892, mean_distance=62.5729
+  Länge  48 bp: n_pairs=1500, mean_cosine=0.9930, mean_distance=51.1022
+  Länge  54 bp: n_pairs=1500, mean_cosine=0.9945, mean_distance=45.2654
+  Länge  60 bp: n_pairs=1500, mean_cosine=0.9958, mean_distance=40.1572
+  Länge  66 bp: n_pairs=1500, mean_cosine=0.9965, mean_distance=36.9592
+  Länge  72 bp: n_pairs=1500, mean_cosine=0.9976, mean_distance=30.0968
+  Länge  78 bp: n_pairs=1500, mean_cosine=0.9981, mean_distance=27.3702
+  Länge  84 bp: n_pairs=1500, mean_cosine=0.9983, mean_distance=25.3707
+  Länge  90 bp: n_pairs=1500, mean_cosine=0.9986, mean_distance=23.8227
+  Länge  96 bp: n_pairs=1500, mean_cosine=0.9986, mean_distance=22.6393
+  Länge 102 bp: n_pairs=1500, mean_cosine=0.9989, mean_distance=21.5090
+  Länge 108 bp: n_pairs=1500, mean_cosine=0.9992, mean_distance=18.3854
+  Länge 114 bp: n_pairs=1500, mean_cosine=0.9992, mean_distance=18.4110
+  Länge 120 bp: n_pairs=1500, mean_cosine=0.9992, mean_distance=18.0542
+SNP-Cosine-Plot gespeichert unter: agront_outputs_synthetic/snp_mean_cosine_vs_length.png
+SNP-Distanz-Plot gespeichert unter: agront_outputs_synthetic/snp_mean_distance_vs_length.png
 /home/htamm/miniconda3/envs/agront/lib/python3.11/site-packages/umap/umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
   warn(
 PCA-Plot gespeichert unter: agront_outputs_synthetic/pca_sequence_embeddings.png
 UMAP-Plot gespeichert unter: agront_outputs_synthetic/umap_sequence_embeddings.png
-Cosine-vs-Länge-Plot gespeichert unter: agront_outputs_synthetic/cosine_vs_length.png
-Distance-vs-Länge-Plot gespeichert unter: agront_outputs_synthetic/distance_vs_length.png
 
 Analyse abgeschlossen.

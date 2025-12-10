@@ -1,37 +1,42 @@
 #!/usr/bin/env python3
 """
-Gesamt-Skript für:
-1. Sequenzgenerierung ODER FASTA-Import
-2. Laden des AgroNT-Modells
-3. Berechnung von Sequenz-Embeddings (letzter Layer)
-4. Analysen:
-   - Cosine-Similarity-Matrix
-   - PCA (2D)
-   - UMAP (2D)
-   - Cosine-Similarity zur Referenzlänge (z.B. 60 bp)
-5. Speichern der Plots
+run_agront_analysis.py
 
-Beispielaufrufe:
+Pipeline für:
+- Sequenzgenerierung (synthetisch) ODER FASTA-Import
+- Embedding-Berechnung mit AgroNT
+- globale Cosine-/Distanz-Statistiken
+- SNP-spezifische mittlere Cosine/Distanz vs. Kontextlänge
+- PCA- und UMAP-Plots
 
-# Synthetische Sequenzen (6..120 bp, Schritt 6, 1000 pro Länge)
+Verwendung (synthetische Sequenzen):
+
 python run_agront_analysis.py \
   --mode synthetic \
-  --min-len 6 --max-len 120 --step 6 --num-per-length 1000 \
+  --min-len 6 \
+  --max-len 120 \
+  --step 6 \
+  --num-per-length 1000 \
   --model-name 1B_agro_nt \
   --layer 12 \
   --max-positions 126 \
+  --pooling seq \
+  --batch-size 512 \
   --output-dir agront_outputs_synthetic
 
-# FASTA-Sequenzen aus Verzeichnis
+Verwendung (FASTA):
+
 python run_agront_analysis.py \
   --mode fasta \
   --fasta-dir /pfad/zu/fasta_files \
   --model-name 1B_agro_nt \
   --layer 12 \
   --max-positions 126 \
+  --pooling seq \
+  --batch-size 512 \
   --output-dir agront_outputs_fasta
 """
-import sys
+
 import argparse
 from pathlib import Path
 from typing import List, Tuple
@@ -39,10 +44,7 @@ from typing import List, Tuple
 import numpy as np
 import jax
 
-from sequence_utils import (
-    generate_snp_variant_sequences,
-    collect_all_sequences,
-)
+from sequence_utils import generate_snp_variant_sequences, collect_all_sequences
 from agront_model import (
     select_first_gpu,
     load_agront_model,
@@ -50,24 +52,29 @@ from agront_model import (
 )
 from analysis_utils import (
     cosine_similarity_matrix,
-    cosine_to_reference,
     euclidean_distance_matrix,
-    euclidean_to_reference,
     summarize_matrix,
     pca_2d,
     umap_2d,
     plot_pca,
     plot_umap,
-    plot_cosine_vs_length,
-    plot_distance_vs_length,
-    compute_snp_stats_by_length,      # NEU
+    compute_snp_stats_by_length,
+    plot_snp_stats_by_length,
 )
+
+
+# ---------------------------------------------------------------------------
+# Hilfsfunktionen für Sequenz-Setup
+# ---------------------------------------------------------------------------
 
 
 def build_sequences_from_mode(args) -> Tuple[List[str], np.ndarray]:
     """
-    Erzeugt oder lädt Sequenzen je nach args.mode und
-    gibt (sequences, lengths_array) zurück.
+    Erzeugt oder lädt Sequenzen abhängig vom Modus.
+
+    Rückgabe:
+      sequences : List[str]
+      lengths   : np.ndarray[int] mit gleicher Länge wie sequences
     """
     if args.mode == "synthetic":
         sequences, lengths = generate_snp_variant_sequences(
@@ -81,74 +88,89 @@ def build_sequences_from_mode(args) -> Tuple[List[str], np.ndarray]:
             f"Synthetische Sequenzen erzeugt: {len(sequences)} "
             f"(Längen {args.min_len}..{args.max_len}, Schritt {args.step})"
         )
-        lengths_arr = np.array(lengths, dtype=int)
-        return sequences, lengths_arr
-
     elif args.mode == "fasta":
-        if args.fasta_dir is None:
-            raise ValueError("--fasta-dir ist für mode 'fasta' erforderlich.")
         fasta_dir = Path(args.fasta_dir)
         if not fasta_dir.is_dir():
             raise NotADirectoryError(f"{fasta_dir} ist kein Verzeichnis.")
-        sequences, lengths, index_meta = collect_all_sequences(fasta_dir)
-        print(f"{len(sequences)} Sequenzen aus FASTA-Dateien geladen.")
-        print("Beispiele (Index: Datei, Länge):")
-        for i in range(min(5, len(index_meta))):
-            fname, L = index_meta[i]
-            print(f"  {i}: Datei={fname}, Länge={L}")
-        lengths_arr = np.array(lengths, dtype=int)
-        return sequences, lengths_arr
-
+        sequences, lengths, _meta = collect_all_sequences(fasta_dir)
+        print(
+            f"FASTA-Sequenzen geladen: {len(sequences)} " f"aus Verzeichnis {fasta_dir}"
+        )
     else:
-        raise ValueError(f"Unbekannter mode: {args.mode}")
+        raise ValueError(f"Unbekannter Modus: {args.mode}")
+
+    lengths = np.asarray(lengths, dtype=int)
+    print(f"Gesamtanzahl Sequenzen: {len(sequences)}")
+    print(f"Min-Länge: {lengths.min()}, Max-Länge: {lengths.max()}")
+    return sequences, lengths
+
+
+# ---------------------------------------------------------------------------
+# Hauptlogik
+# ---------------------------------------------------------------------------
 
 
 def main():
+    # GPU-Auswahl (nur Device 0 sichtbar machen)
     select_first_gpu(device_id=0)
 
     parser = argparse.ArgumentParser(
-        description="AgroNT-Analyse von Sequenz-Embeddings für synthetische oder FASTA-Sequenzen."
+        description=(
+            "Analyse von AgroNT-Embeddings für Sequenzen unterschiedlicher "
+            "Kontextlänge mit globalen Statistiken, PCA/UMAP und "
+            "SNP-spezifischen Distanz-/Cosine-Plots."
+        )
     )
+
     parser.add_argument(
         "--mode",
         type=str,
         choices=["synthetic", "fasta"],
-        default="synthetic",
-        help="synthetic: generierte SNP-Kontext-Sequenzen; fasta: Sequenzen aus FASTA-Dateien.",
+        required=True,
+        help="Eingabemodus: 'synthetic' für generierte SNP-Kontexte oder 'fasta' für Sequenzen aus FASTA-Dateien.",
     )
 
-    # Synthetic-Parameter
+    # Parameter für synthetische Sequenzen
     parser.add_argument(
-        "--min-len", type=int, default=6, help="Minimale Sequenzlänge (synthetic)."
+        "--min-len",
+        type=int,
+        default=6,
+        help="Minimale Sequenzlänge (nur im Modus 'synthetic').",
     )
     parser.add_argument(
-        "--max-len", type=int, default=120, help="Maximale Sequenzlänge (synthetic)."
+        "--max-len",
+        type=int,
+        default=120,
+        help="Maximale Sequenzlänge (nur im Modus 'synthetic').",
     )
     parser.add_argument(
         "--step",
         type=int,
         default=6,
-        help="Schrittweite der Sequenzlängen (synthetic).",
+        help="Schrittweite der Längen (z.B. 6 -> 6,12,...). Nur im Modus 'synthetic'.",
     )
     parser.add_argument(
         "--num-per-length",
         type=int,
         default=1000,
-        help="Anzahl Sequenzen pro Länge (synthetic).",
+        help="Anzahl Sequenzen pro Länge (nur im Modus 'synthetic').",
     )
     parser.add_argument(
-        "--seed", type=int, default=0, help="Random-Seed für Sequenzgenerierung."
+        "--seed",
+        type=int,
+        default=0,
+        help="Zufallsseed für die Sequenzgenerierung (nur im Modus 'synthetic').",
     )
 
-    # FASTA-Parameter
+    # Parameter für FASTA-Modus
     parser.add_argument(
         "--fasta-dir",
         type=str,
         default=None,
-        help="Verzeichnis mit FASTA-Dateien (*.fa*), nur für mode=fasta.",
+        help="Verzeichnis mit FASTA-Dateien (*.fa*), nur im Modus 'fasta' relevant.",
     )
 
-    # Modellparameter
+    # Modell-Parameter
     parser.add_argument(
         "--model-name",
         type=str,
@@ -165,14 +187,20 @@ def main():
         "--max-positions",
         type=int,
         default=126,
-        help="max_positions für das Modell (Token-Länge im Modell).",
+        help="max_positions des Modells (Token-Länge).",
     )
     parser.add_argument(
         "--pooling",
         type=str,
-        choices=["cls", "seq"],
+        choices=["seq", "cls"],
         default="seq",
-        help="Welches Token-Embedding als Sequenz-Embedding verwendet wird: 'cls' oder 'seq'.",
+        help="Pooling-Strategie: 'seq' = Sequenz-Token, 'cls' = CLS-Token.",
+    )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=512,
+        help="Batchgröße für die Inferenz.",
     )
 
     # Output
@@ -188,11 +216,8 @@ def main():
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # 1) Sequenzen bauen / laden
+    # 1) Sequenzen bereitstellen
     sequences, lengths = build_sequences_from_mode(args)
-    N = len(sequences)
-    print(f"Gesamtanzahl Sequenzen: {N}")
-    print(f"Min-Länge: {lengths.min()}, Max-Länge: {lengths.max()}")
 
     # 2) Modell laden
     parameters, forward_fn, tokenizer, config = load_agront_model(
@@ -201,10 +226,8 @@ def main():
         layer_to_save=args.layer,
     )
 
-    # Fixer Random Key (deterministische Inferenz)
+    # 3) Embeddings berechnen
     rng = jax.random.PRNGKey(0)
-
-    # 3) Sequenz-Embeddings berechnen (Shape: (N, hidden_dim))
     X = get_sequence_embeddings(
         sequences=sequences,
         parameters=parameters,
@@ -213,21 +236,30 @@ def main():
         rng_key=rng,
         layer_to_save=args.layer,
         pooling=args.pooling,
-        batch_size=512,
-    )
+        batch_size=args.batch_size,
+    )  # Shape: (N, hidden_dim)
 
-    # Cosine-Similarity-Matrix
+    N, hidden_dim = X.shape
+    print(f"\nFertige Embeddings-Shape: (N={N}, hidden_dim={hidden_dim})")
+
+    # 4) Globale Cosine-/Distanz-Matrizen (nur Statistik)
     cos_mat = cosine_similarity_matrix(X)
     summarize_matrix("GLOBAL Sequenz-Embeddings Cosine-Similarity", cos_mat)
 
-        # 4b) SNP-Stats: Vergleiche NUR Sequenzen mit gleichen Flanken (SNP in der Mitte)
+    dist_mat = euclidean_distance_matrix(X)
+    summarize_matrix("GLOBAL Sequenz-Embeddings Euclidean Distance", dist_mat)
+
+    # 5) SNP-spezifische Statistiken & Plots
     snp_stats = compute_snp_stats_by_length(
         sequences=sequences,
         lengths=lengths,
         embeddings=X,
     )
 
-    print("\nSNP-Paar-Statistiken pro Sequenzlänge (nur gleiche Flanken, SNP in der Mitte):")
+    print(
+        "\nSNP-Paar-Statistiken pro Sequenzlänge "
+        "(gleiche Flanken, SNP in der Mitte):"
+    )
     for L in sorted(snp_stats.keys()):
         stats_L = snp_stats[L]
         print(
@@ -236,41 +268,14 @@ def main():
             f"mean_cosine={stats_L['mean_cosine']:.4f}, "
             f"mean_distance={stats_L['mean_distance']:.4f}"
         )
-"""
-    # Optional: als CSV speichern
-    out_stats = output_dir / "snp_pairwise_stats.csv"
-    with out_stats.open("w") as f:
-        f.write("length,n_pairs,mean_cosine,mean_distance\n")
-        for L in sorted(snp_stats.keys()):
-            sL = snp_stats[L]
-            f.write(
-                f"{L},{sL['n_pairs']},{sL['mean_cosine']:.6f},{sL['mean_distance']:.6f}\n"
-            )
-    print(f"SNP-Paar-Statistiken gespeichert unter: {out_stats}")
 
-"""
+    plot_snp_stats_by_length(
+        snp_stats=snp_stats,
+        output_cosine_path=output_dir / "snp_mean_cosine_vs_length.png",
+        output_distance_path=output_dir / "snp_mean_distance_vs_length.png",
+    )
 
-    # Euklidische Distanz-Matrix (optional – groß!)
-    dist_mat = euclidean_distance_matrix(X)
-    summarize_matrix("GLOBAL Sequenz-Embeddings Euclidean Distance", dist_mat)
-
-    # 5) Referenzsequenz bestimmen: bevorzugt Länge 60, sonst längste Sequenz
-    target_length = 60
-    candidate_indices = np.where(lengths == target_length)[0]
-    if len(candidate_indices) > 0:
-        ref_idx = int(candidate_indices[0])
-    else:
-        ref_idx = int(np.argmax(lengths))
-        target_length = int(lengths[ref_idx])
-        print(
-            f"\nKeine Sequenz mit exakt 60 bp gefunden – "
-            f"verwende Länge {target_length} bp als Referenz."
-        )
-
-    cos_to_ref = cosine_to_reference(X, ref_idx=ref_idx)
-    dist_to_ref = euclidean_to_reference(X, ref_idx=ref_idx)
-
-    # 6) PCA & UMAP berechnen
+    # 6) PCA & UMAP auf allen Sequenz-Embeddings
     X_pca = pca_2d(X)
     X_umap = umap_2d(
         X,
@@ -280,32 +285,26 @@ def main():
         random_state=0,
     )
 
-    # 7) Plots erstellen und speichern
     plot_pca(
         X_pca=X_pca,
         lengths=lengths,
         output_path=output_dir / "pca_sequence_embeddings.png",
     )
+
     plot_umap(
         X_umap=X_umap,
         lengths=lengths,
         output_path=output_dir / "umap_sequence_embeddings.png",
     )
-    plot_cosine_vs_length(
-        lengths=lengths,
-        cos_to_ref=cos_to_ref,
-        ref_length=target_length,
-        output_path=output_dir / "cosine_vs_length.png",
-    )
-
-    plot_distance_vs_length(
-        lengths=lengths,
-        dist_to_ref=dist_to_ref,
-        ref_length=target_length,
-        output_path=output_dir / "distance_vs_length.png",
-    )
 
     print("\nAnalyse abgeschlossen.")
+
+
+# ---------------------------------------------------------------------------
+# Logging: Terminal + log.txt gleichzeitig (Tee)
+# ---------------------------------------------------------------------------
+
+import sys
 
 
 class Tee:
@@ -325,21 +324,16 @@ class Tee:
 if __name__ == "__main__":
     log_file = open("log.txt", "w")
 
-    # Original-Streams sichern (optional, aber sauber)
     original_stdout = sys.stdout
     original_stderr = sys.stderr
 
-    # stdout und stderr auf Tee umbiegen:
-    # -> alles geht sowohl in die Konsole als auch in log.txt
+    # alles gleichzeitig in Konsole und Logfile schreiben
     sys.stdout = Tee(original_stdout, log_file)
     sys.stderr = Tee(original_stderr, log_file)
 
     try:
-        # HIER läuft dein normales Programm
         main()
     finally:
-        # Streams wiederherstellen (wichtig, falls das Modul
-        # später noch importiert wird)
         sys.stdout = original_stdout
         sys.stderr = original_stderr
         log_file.close()

@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """
 Hilfsfunktionen für:
-- Cosine-Similarity
+- Cosine-Similarity & euklidische Distanz
+- SNP-spezifische Statistiken
 - PCA / UMAP
 - Plots
 """
 
 from pathlib import Path
-from typing import Tuple
+from typing import Dict, List
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -42,17 +43,8 @@ def cosine_to_reference(X: np.ndarray, ref_idx: int) -> np.ndarray:
     """
     Cosine-Similarity jedes Vektors in X zu einem Referenzvektor X[ref_idx].
 
-    Parameter
-    ---------
-    X : np.ndarray
-        Shape: (n, d)
-    ref_idx : int
-        Index des Referenzvektors.
-
-    Rückgabewert
-    ------------
-    np.ndarray
-        Shape: (n,), Cosine-Similarity zwischen X[i] und X[ref_idx].
+    (Aktuell in run_agront_analysis.py nicht verwendet, bleibt aber für
+    spätere Experimente erhalten.)
     """
     ref = X[ref_idx]
     ref_norm = np.linalg.norm(ref) + 1e-12
@@ -86,17 +78,7 @@ def euclidean_to_reference(X: np.ndarray, ref_idx: int) -> np.ndarray:
     """
     Euklidische Distanz jedes Vektors in X zu einem Referenzvektor X[ref_idx].
 
-    Parameter
-    ---------
-    X : np.ndarray
-        Shape: (n, d)
-    ref_idx : int
-        Index des Referenzvektors.
-
-    Rückgabewert
-    ------------
-    np.ndarray
-        Shape: (n,), euklidische Distanzen zwischen X[i] und X[ref_idx].
+    (Aktuell nicht verwendet, bleibt der Vollständigkeit halber erhalten.)
     """
     ref = X[ref_idx]  # (d,)
     diffs = X - ref  # (n, d)
@@ -116,17 +98,14 @@ def pairwise_cosine_and_distance(
       cos_vals  : 1D-Array aller Cosine-Werte, Länge k*(k-1)/2
       dist_vals : 1D-Array aller Distanz-Werte, Länge k*(k-1)/2
     """
-    from typing import Tuple
-
     k = emb_group.shape[0]
     if k < 2:
         return np.array([]), np.array([])
 
-    # Cosine- & Distanz-Matrix auf die kleine Gruppe anwenden
     cos_mat = cosine_similarity_matrix(emb_group)  # (k, k)
     dist_mat = euclidean_distance_matrix(emb_group)  # (k, k)
 
-    # Nur obere Dreiecksmatrix ohne Diagonale (i < j)
+    # obere Dreiecksmatrix ohne Diagonale (i < j)
     mask = np.triu(np.ones((k, k), dtype=bool), k=1)
     cos_vals = cos_mat[mask]
     dist_vals = dist_mat[mask]
@@ -134,24 +113,31 @@ def pairwise_cosine_and_distance(
 
 
 def compute_snp_stats_by_length(
-    sequences: list[str],
+    sequences: List[str],
     lengths: np.ndarray,
     embeddings: np.ndarray,
-) -> dict[int, dict[str, float]]:
+) -> Dict[int, Dict[str, float]]:
     """
-    Berechnet pro Sequenzlänge die durchschnittliche Cosine-Similarity und
-    euklidische Distanz zwischen Sequenzen, die sich NUR in der Base in der Mitte
-    unterscheiden (gleiche Flanken = gleiche Template-Sequenz).
+    Berechnet pro Sequenzlänge Statistiken zwischen Sequenzen, die sich nur in der
+    Base in der Mitte unterscheiden (gleiche Flanken = gleiche Template-Sequenz).
+
+    Für jede Länge L werden:
+      - globale Mittelwerte über ALLE SNP-Paare (mean_cosine, mean_distance)
+      - Anzahl aller SNP-Paare (n_pairs)
+      - Mittelwerte pro Template-Sequenz (template_mean_cosines/-distances)
+        gespeichert.
 
     Rückgabe:
       dict:
         length -> {
-            "mean_cosine": ...,
-            "mean_distance": ...,
-            "n_pairs": ...,
+            "mean_cosine": float,
+            "mean_distance": float,
+            "n_pairs": int,
+            "template_mean_cosines": List[float],
+            "template_mean_distances": List[float],
         }
     """
-    results: dict[int, dict[str, float]] = {}
+    results: Dict[int, Dict[str, float]] = {}
 
     unique_lengths = np.unique(lengths)
     for L in unique_lengths:
@@ -161,27 +147,34 @@ def compute_snp_stats_by_length(
 
         mid = L // 2
         # Gruppieren nach Flanken (ohne Mittel-Base)
-        groups: dict[str, list[int]] = {}
+        groups: Dict[str, List[int]] = {}
         for i in idx_L:
             seq = sequences[i]
-            flanks = seq[:mid] + seq[mid + 1 :]  # alles außer der SNP-Position
+            flanks = seq[:mid] + seq[mid + 1 :]  # alles außer SNP-Position
             groups.setdefault(flanks, []).append(i)
 
         all_cos_vals = []
         all_dist_vals = []
+        template_mean_cosines: List[float] = []
+        template_mean_distances: List[float] = []
 
         for flanks, idxs in groups.items():
             if len(idxs) < 2:
-                # nur eine Variante vorhanden → kein Vergleich möglich
                 continue
             emb_group = embeddings[idxs, :]  # (k, d) mit k=2..4
             cos_vals, dist_vals = pairwise_cosine_and_distance(emb_group)
-            if cos_vals.size > 0:
-                all_cos_vals.append(cos_vals)
-                all_dist_vals.append(dist_vals)
+            if cos_vals.size == 0:
+                continue
+
+            # globale Sammlung aller paarweisen Werte
+            all_cos_vals.append(cos_vals)
+            all_dist_vals.append(dist_vals)
+
+            # Mittelwerte pro Template (für den Plot pro Templatesequenz)
+            template_mean_cosines.append(float(cos_vals.mean()))
+            template_mean_distances.append(float(dist_vals.mean()))
 
         if not all_cos_vals:
-            # keine gültigen Paar-Vergleiche für diese Länge
             continue
 
         cos_concat = np.concatenate(all_cos_vals)
@@ -191,6 +184,8 @@ def compute_snp_stats_by_length(
             "mean_cosine": float(cos_concat.mean()),
             "mean_distance": float(dist_concat.mean()),
             "n_pairs": int(cos_concat.size),
+            "template_mean_cosines": template_mean_cosines,
+            "template_mean_distances": template_mean_distances,
         }
 
     return results
@@ -236,7 +231,7 @@ def pca_2d(X: np.ndarray) -> np.ndarray:
         PCA-Projektion auf 2D, Shape: (n_samples, 2)
     """
     X_centered = X - X.mean(axis=0, keepdims=True)
-    U, S, Vt = np.linalg.svd(X_centered, full_matrices=False)
+    _, _, Vt = np.linalg.svd(X_centered, full_matrices=False)
     components = Vt[:2]  # erste 2 Hauptkomponenten
     X_pca = X_centered @ components.T
     return X_pca
@@ -353,6 +348,8 @@ def plot_cosine_vs_length(
 ) -> None:
     """
     Cosine-Similarity zur Referenz-Sequenz als Funktion der Sequenzlänge.
+
+    (Aktuell nicht in run_agront_analysis.py verwendet, bleibt aber verfügbar.)
     """
     fig, ax = plt.subplots(figsize=(6, 4))
 
@@ -375,6 +372,8 @@ def plot_distance_vs_length(
     """
     Plottet die euklidische Distanz zur Referenzsequenz (z.B. 60 bp)
     als Funktion der Sequenzlänge.
+
+    (Aktuell nicht in run_agront_analysis.py verwendet, bleibt aber verfügbar.)
     """
     fig, ax = plt.subplots(figsize=(6, 4))
 
@@ -389,3 +388,79 @@ def plot_distance_vs_length(
     fig.savefig(output_path)
     plt.close(fig)
     print(f"Distance-vs-Länge-Plot gespeichert unter: {output_path}")
+
+
+def plot_snp_stats_by_length(
+    snp_stats: Dict[int, Dict[str, float]],
+    output_cosine_path: Path,
+    output_distance_path: Path,
+) -> None:
+    """
+    Plottet die mittlere Cosine-Similarity bzw. euklidische Distanz
+    zwischen SNP-Varianten (gleiche Flanken) als Funktion der Sequenzlänge.
+
+    Es wird NICHT nur ein Wert pro Länge geplottet, sondern
+    für jede Templatesequenz ein Punkt:
+      x = Sequenzlänge L
+      y = Mittelwert der paarweisen Werte innerhalb der Varianten
+          dieses Templates.
+    """
+    if not snp_stats:
+        print("Keine SNP-Statistiken vorhanden – überspringe SNP-Plots.")
+        return
+
+    lengths_per_template: List[int] = []
+    cos_per_template: List[float] = []
+    dist_per_template: List[float] = []
+
+    for L in sorted(snp_stats.keys()):
+        stats_L = snp_stats[L]
+        tm_cos = stats_L.get("template_mean_cosines", [])
+        tm_dist = stats_L.get("template_mean_distances", [])
+        if len(tm_cos) != len(tm_dist):
+            continue
+        for c_val, d_val in zip(tm_cos, tm_dist):
+            lengths_per_template.append(L)
+            cos_per_template.append(c_val)
+            dist_per_template.append(d_val)
+
+    if not lengths_per_template:
+        print("Keine Template-basierten SNP-Statistiken gefunden – keine SNP-Plots.")
+        return
+
+    lengths_arr = np.asarray(lengths_per_template, dtype=int)
+    cos_arr = np.asarray(cos_per_template, dtype=float)
+    dist_arr = np.asarray(dist_per_template, dtype=float)
+
+    x_min = lengths_arr.min()
+    x_max = lengths_arr.max()
+
+    # Plot: mittlere Cosine-Similarity pro Template
+    fig, ax = plt.subplots(figsize=(6, 4))
+    ax.scatter(lengths_arr, cos_arr, s=20)
+    ax.set_xlabel("Sequenzlänge (bp)")
+    ax.set_ylabel(
+        "mittlere Cosine-Similarity\n(zwischen SNP-Varianten eines Templates)"
+    )
+    ax.set_title("SNP-Embeddings: mittlere Cosine-Similarity vs. Kontextlänge")
+    ax.set_xlim(x_min - 1, x_max + 1)
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(output_cosine_path)
+    plt.close(fig)
+    print(f"SNP-Cosine-Plot gespeichert unter: {output_cosine_path}")
+
+    # Plot: mittlere euklidische Distanz pro Template
+    fig, ax = plt.subplots(figsize=(6, 4))
+    ax.scatter(lengths_arr, dist_arr, s=20)
+    ax.set_xlabel("Sequenzlänge (bp)")
+    ax.set_ylabel(
+        "mittlere euklidische Distanz\n(zwischen SNP-Varianten eines Templates)"
+    )
+    ax.set_title("SNP-Embeddings: mittlere Distanz vs. Kontextlänge")
+    ax.set_xlim(x_min - 1, x_max + 1)
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(output_distance_path)
+    plt.close(fig)
+    print(f"SNP-Distanz-Plot gespeichert unter: {output_distance_path}")
