@@ -1,6 +1,4 @@
 CUDA_VISIBLE_DEVICES = 0
-/home/htamm/miniconda3/envs/agront/lib/python3.11/site-packages/torch/cuda/__init__.py:827: UserWarning: Can't initialize NVML
-  warnings.warn("Can't initialize NVML")
 Anzahl sichtbarer CUDA Devices (PyTorch): 1
 Synthetische Sequenzen erzeugt: 20000 (Längen 6..120, Schritt 6)
 Gesamtanzahl Sequenzen: 20000
@@ -88,6 +86,75 @@ SNP-Paar-Statistiken pro Sequenzlänge (gleiche Flanken, SNP in der Mitte):
   Länge 120 bp: n_pairs=1500, mean_cosine=0.9992, mean_distance=18.0542
 SNP-Cosine-Plot gespeichert unter: agront_outputs_synthetic/snp_mean_cosine_vs_length.png
 SNP-Distanz-Plot gespeichert unter: agront_outputs_synthetic/snp_mean_distance_vs_length.png
+
+Mittlere euklidische Distanz pro Länge (alle Sequenzpaare):
+  Länge   6 bp: n_pairs=499500, mean_distance=144.6363
+  Länge  12 bp: n_pairs=499500, mean_distance=167.7770
+  Länge  18 bp: n_pairs=499500, mean_distance=171.0179
+  Länge  24 bp: n_pairs=499500, mean_distance=165.6040
+  Länge  30 bp: n_pairs=499500, mean_distance=162.5602
+  Länge  36 bp: n_pairs=499500, mean_distance=163.6345
+  Länge  42 bp: n_pairs=499500, mean_distance=162.6784
+  Länge  48 bp: n_pairs=499500, mean_distance=157.3654
+  Länge  54 bp: n_pairs=499500, mean_distance=156.6293
+  Länge  60 bp: n_pairs=499500, mean_distance=153.4758
+  Länge  66 bp: n_pairs=499500, mean_distance=151.5031
+  Länge  72 bp: n_pairs=499500, mean_distance=149.1831
+  Länge  78 bp: n_pairs=499500, mean_distance=147.1686
+  Länge  84 bp: n_pairs=499500, mean_distance=144.1407
+  Länge  90 bp: n_pairs=499500, mean_distance=143.5397
+  Länge  96 bp: n_pairs=499500, mean_distance=141.8470
+  Länge 102 bp: n_pairs=499500, mean_distance=139.0452
+  Länge 108 bp: n_pairs=499500, mean_distance=139.4901
+  Länge 114 bp: n_pairs=499500, mean_distance=137.4827
+  Länge 120 bp: n_pairs=499500, mean_distance=135.4948
+Plot 'mittlere Distanz vs. Länge' gespeichert unter: agront_outputs_synthetic/length_mean_distance_vs_length.png
+
+SNP-Distanzen relativ zur mittleren Distanz (in Prozent):
+  Länge   6 bp: percent=80.42%, snp_mean_distance=116.3124, baseline=144.6363
+  Länge  12 bp: percent=63.42%, snp_mean_distance=106.4047, baseline=167.7770
+  Länge  18 bp: percent=59.73%, snp_mean_distance=102.1552, baseline=171.0179
+  Länge  24 bp: percent=47.61%, snp_mean_distance=78.8371, baseline=165.6040
+  Länge  30 bp: percent=44.15%, snp_mean_distance=71.7745, baseline=162.5602
+  Länge  36 bp: percent=41.29%, snp_mean_distance=67.5681, baseline=163.6345
+  Länge  42 bp: percent=38.46%, snp_mean_distance=62.5729, baseline=162.6784
+  Länge  48 bp: percent=32.47%, snp_mean_distance=51.1022, baseline=157.3654
+  Länge  54 bp: percent=28.90%, snp_mean_distance=45.2654, baseline=156.6293
+  Länge  60 bp: percent=26.17%, snp_mean_distance=40.1572, baseline=153.4758
+  Länge  66 bp: percent=24.40%, snp_mean_distance=36.9592, baseline=151.5031
+  Länge  72 bp: percent=20.17%, snp_mean_distance=30.0968, baseline=149.1831
+  Länge  78 bp: percent=18.60%, snp_mean_distance=27.3702, baseline=147.1686
+  Länge  84 bp: percent=17.60%, snp_mean_distance=25.3707, baseline=144.1407
+  Länge  90 bp: percent=16.60%, snp_mean_distance=23.8227, baseline=143.5397
+  Länge  96 bp: percent=15.96%, snp_mean_distance=22.6393, baseline=141.8470
+  Länge 102 bp: percent=15.47%, snp_mean_distance=21.5090, baseline=139.0452
+  Länge 108 bp: percent=13.18%, snp_mean_distance=18.3854, baseline=139.4901
+  Länge 114 bp: percent=13.39%, snp_mean_distance=18.4110, baseline=137.4827
+  Länge 120 bp: percent=13.32%, snp_mean_distance=18.0542, baseline=135.4948
+Plot 'SNP-Distanz in %' gespeichert unter: agront_outputs_synthetic/snp_distance_percent_vs_length.png
+
+Mittlere Embedding-Norm pro Länge (L2):
+  Länge   6 bp: n=1000, mean_norm=375.0019
+  Länge  12 bp: n=1000, mean_norm=388.8868
+  Länge  18 bp: n=1000, mean_norm=411.2252
+  Länge  24 bp: n=1000, mean_norm=441.6823
+  Länge  30 bp: n=1000, mean_norm=444.5147
+  Länge  36 bp: n=1000, mean_norm=439.8347
+  Länge  42 bp: n=1000, mean_norm=436.9489
+  Länge  48 bp: n=1000, mean_norm=444.5798
+  Länge  54 bp: n=1000, mean_norm=444.2906
+  Länge  60 bp: n=1000, mean_norm=444.0680
+  Länge  66 bp: n=1000, mean_norm=446.0837
+  Länge  72 bp: n=1000, mean_norm=445.9604
+  Länge  78 bp: n=1000, mean_norm=455.9278
+  Länge  84 bp: n=1000, mean_norm=455.2251
+  Länge  90 bp: n=1000, mean_norm=456.0691
+  Länge  96 bp: n=1000, mean_norm=453.7721
+  Länge 102 bp: n=1000, mean_norm=456.4472
+  Länge 108 bp: n=1000, mean_norm=458.7443
+  Länge 114 bp: n=1000, mean_norm=461.2829
+  Länge 120 bp: n=1000, mean_norm=461.6063
+Plot 'mittlere Embedding-Norm vs. Länge' gespeichert unter: agront_outputs_synthetic/mean_embedding_norm_vs_length.png
 /home/htamm/miniconda3/envs/agront/lib/python3.11/site-packages/umap/umap_.py:1952: UserWarning: n_jobs value 1 overridden to 1 by setting random_state. Use no seed for parallelism.
   warn(
 PCA-Plot gespeichert unter: agront_outputs_synthetic/pca_sequence_embeddings.png

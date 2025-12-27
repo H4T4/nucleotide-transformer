@@ -89,6 +89,11 @@ Was das macht:
 
   - `pca_sequence_embeddings.png`
   - `umap_sequence_embeddings.png`
+  - `snp_mean_cosine_vs_length.png`
+  - `snp_mean_distance_vs_length.png`
+  - `length_mean_distance_vs_length.png` (mittlere euklidische Distanz aller Sequenzen pro Länge; genau ein Punkt je Länge)
+  - `snp_distance_percent_vs_length.png` (SNP-Distanzen in % der mittleren Länge-Distanz; ein Punkt je Länge)
+  - `mean_embedding_norm_vs_length.png` (mittlere L2-Norm der Embeddings pro Länge)
   - `cosine_vs_length.png`
 
 Die Plots kannst du dir dann z.B. in VSCode oder im Dateimanager anschauen.

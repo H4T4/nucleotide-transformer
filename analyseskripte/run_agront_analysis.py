@@ -60,6 +60,12 @@ from analysis_utils import (
     plot_umap,
     compute_snp_stats_by_length,
     plot_snp_stats_by_length,
+    mean_distance_by_length,
+    plot_mean_distance_by_length,
+    compute_snp_distance_percent_by_length,
+    plot_snp_distance_percent_by_length,
+    mean_embedding_norm_by_length,
+    plot_mean_embedding_norm_by_length,
 )
 
 
@@ -273,6 +279,75 @@ def main():
         snp_stats=snp_stats,
         output_cosine_path=output_dir / "snp_mean_cosine_vs_length.png",
         output_distance_path=output_dir / "snp_mean_distance_vs_length.png",
+    )
+
+    # 5b) Globale mittlere Distanz pro Sequenzlänge für die Zufallssequenzen.
+    #     Hier werden ALLE Sequenzen einer Länge (z.B. die 1000 generierten
+    #     Zufallssequenzen bei 6, 12, ... 120 bp) gegeneinander gemittelt,
+    #     um genau einen Distanzwert pro Länge zu erhalten.
+    length_distance_stats = mean_distance_by_length(
+        lengths=lengths,
+        embeddings=X,
+    )
+
+    print("\nMittlere euklidische Distanz pro Länge (alle Sequenzpaare):")
+    for L in sorted(length_distance_stats.keys()):
+        stats_L = length_distance_stats[L]
+        print(
+            f"  Länge {L:>3} bp: "
+            f"n_pairs={stats_L['n_pairs']}, "
+            f"mean_distance={stats_L['mean_distance']:.4f}"
+        )
+
+    plot_mean_distance_by_length(
+        distance_stats=length_distance_stats,
+        output_path=output_dir / "length_mean_distance_vs_length.png",
+    )
+
+    # 5c) SNP-Distanzen als Prozent der globalen Durchschnittsdistanz pro Länge.
+    #     Der Plot fasst die SNP-Paare je Länge auf einen Prozentwert zusammen
+    #     und zeigt damit, wie "klein" SNP-Varianten im Vergleich zum
+    #     durchschnittlichen Abstand aller Sequenzen dieser Länge sind.
+    snp_distance_percent_stats = compute_snp_distance_percent_by_length(
+        snp_stats=snp_stats,
+        length_distance_stats=length_distance_stats,
+    )
+
+    print("\nSNP-Distanzen relativ zur mittleren Distanz (in Prozent):")
+    for L in sorted(snp_distance_percent_stats.keys()):
+        stats_L = snp_distance_percent_stats[L]
+        print(
+            f"  Länge {L:>3} bp: "
+            f"percent={stats_L['percent']:.2f}%, "
+            f"snp_mean_distance={stats_L['snp_mean_distance']:.4f}, "
+            f"baseline={stats_L['baseline_distance']:.4f}"
+        )
+
+    plot_snp_distance_percent_by_length(
+        distance_percent_stats=snp_distance_percent_stats,
+        output_path=output_dir / "snp_distance_percent_vs_length.png",
+    )
+
+    # 5d) Mittlere Embedding-Norm pro Länge.
+    #     Dieser Plot hilft zu sehen, ob die Embedding-Skalen mit der
+    #     Sequenzlänge systematisch ansteigen oder abfallen.
+    embedding_norm_stats = mean_embedding_norm_by_length(
+        lengths=lengths,
+        embeddings=X,
+    )
+
+    print("\nMittlere Embedding-Norm pro Länge (L2):")
+    for L in sorted(embedding_norm_stats.keys()):
+        stats_L = embedding_norm_stats[L]
+        print(
+            f"  Länge {L:>3} bp: "
+            f"n={stats_L['n_sequences']}, "
+            f"mean_norm={stats_L['mean_norm']:.4f}"
+        )
+
+    plot_mean_embedding_norm_by_length(
+        norm_stats=embedding_norm_stats,
+        output_path=output_dir / "mean_embedding_norm_vs_length.png",
     )
 
     # 6) PCA & UMAP auf allen Sequenz-Embeddings

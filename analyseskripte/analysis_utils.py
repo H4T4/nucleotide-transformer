@@ -464,3 +464,238 @@ def plot_snp_stats_by_length(
     fig.savefig(output_distance_path)
     plt.close(fig)
     print(f"SNP-Distanz-Plot gespeichert unter: {output_distance_path}")
+
+
+# ---------------------------------------------------------------------------
+# Distanz-Statistik über alle Sequenzen einer Länge
+# ---------------------------------------------------------------------------
+
+
+def mean_distance_by_length(
+    lengths: np.ndarray,
+    embeddings: np.ndarray,
+) -> Dict[int, Dict[str, float]]:
+    """
+    Berechnet pro Sequenzlänge die mittlere euklidische Distanz zwischen
+    ALLEN Sequenzen dieser Länge.
+
+    Die Funktion arbeitet analog zur SNP-Auswertung, verzichtet aber auf
+    die Gruppierung nach Templates. So entsteht genau ein Mittelwert pro
+    Länge, der als Referenz für zufällige Sequenzsets genutzt werden kann.
+
+    Rückgabe:
+      dict:
+        length -> {"mean_distance": float, "n_pairs": int}
+    """
+    results: Dict[int, Dict[str, float]] = {}
+
+    unique_lengths = np.unique(lengths)
+    for L in unique_lengths:
+        idx_L = np.where(lengths == L)[0]
+        if len(idx_L) < 2:
+            # mit nur einer Sequenz ist keine Distanz definierbar
+            continue
+
+        emb_L = embeddings[idx_L, :]  # (n_L, d)
+        dist_mat = euclidean_distance_matrix(emb_L)
+
+        # obere Dreiecksmatrix ohne Diagonale, um alle Paar-Kombinationen zu mitteln
+        mask = np.triu(np.ones(dist_mat.shape, dtype=bool), k=1)
+        dist_vals = dist_mat[mask]
+
+        results[int(L)] = {
+            "mean_distance": float(dist_vals.mean()),
+            "n_pairs": int(dist_vals.size),
+        }
+
+    return results
+
+
+def plot_mean_distance_by_length(
+    distance_stats: Dict[int, Dict[str, float]],
+    output_path: Path,
+) -> None:
+    """
+    Plottet genau einen Punkt pro Sequenzlänge: die mittlere euklidische Distanz
+    zwischen allen Sequenzen dieser Länge (z.B. 1000 Zufallssequenzen).
+    """
+    if not distance_stats:
+        print("Keine Distanz-Statistiken pro Länge vorhanden – überspringe Plot.")
+        return
+
+    lengths_sorted = sorted(distance_stats.keys())
+    mean_dists = [distance_stats[L]["mean_distance"] for L in lengths_sorted]
+
+    x_min = lengths_sorted[0]
+    x_max = lengths_sorted[-1]
+
+    fig, ax = plt.subplots(figsize=(6, 4))
+
+    # Ein Punkt pro Länge; eine dünne Linie hilft beim Verlauf über die Länge
+    ax.plot(lengths_sorted, mean_dists, linestyle="--", color="#1f77b4", alpha=0.6)
+    ax.scatter(lengths_sorted, mean_dists, s=40, color="#1f77b4")
+
+    ax.set_xlabel("Sequenzlänge (bp)")
+    ax.set_ylabel("mittlere euklidische Distanz\n(alle Sequenzpaare pro Länge)")
+    ax.set_title("Seq-Embeddings: mittlere Distanz vs. Länge")
+    ax.set_xlim(x_min - 1, x_max + 1)
+    ax.grid(True, alpha=0.3)
+
+    fig.tight_layout()
+    fig.savefig(output_path)
+    plt.close(fig)
+    print(f"Plot 'mittlere Distanz vs. Länge' gespeichert unter: {output_path}")
+
+
+# ---------------------------------------------------------------------------
+# SNP-Distanz relativ zur globalen Durchschnittsdistanz (in Prozent)
+# ---------------------------------------------------------------------------
+
+
+def compute_snp_distance_percent_by_length(
+    snp_stats: Dict[int, Dict[str, float]],
+    length_distance_stats: Dict[int, Dict[str, float]],
+) -> Dict[int, Dict[str, float]]:
+    """
+    Setzt die mittlere SNP-Distanz pro Länge in Relation zur globalen
+    Durchschnittsdistanz der jeweiligen Länge.
+
+    Ergebnis:
+      percent = (SNP-mean-distance / mean-distance-alle-Paare) * 100
+
+    Rückgabe:
+      dict:
+        length -> {
+            "percent": float,
+            "snp_mean_distance": float,
+            "baseline_distance": float,
+        }
+    """
+    results: Dict[int, Dict[str, float]] = {}
+
+    for L, stats_L in snp_stats.items():
+        if L not in length_distance_stats:
+            # Falls für eine Länge keine globale Distanz existiert, überspringen.
+            continue
+
+        baseline = length_distance_stats[L]["mean_distance"]
+        if baseline <= 0:
+            # Numerisch oder inhaltlich nicht sinnvoll, dann keine Prozentangabe.
+            continue
+
+        snp_mean = stats_L["mean_distance"]
+        percent = (snp_mean / baseline) * 100.0
+
+        results[int(L)] = {
+            "percent": float(percent),
+            "snp_mean_distance": float(snp_mean),
+            "baseline_distance": float(baseline),
+        }
+
+    return results
+
+
+def plot_snp_distance_percent_by_length(
+    distance_percent_stats: Dict[int, Dict[str, float]],
+    output_path: Path,
+) -> None:
+    """
+    Plottet die mittlere SNP-Distanz pro Länge als Prozentwert der
+    globalen Durchschnittsdistanz (alle Sequenzpaare pro Länge).
+    """
+    if not distance_percent_stats:
+        print("Keine Prozent-Statistiken für SNP-Distanzen vorhanden – überspringe Plot.")
+        return
+
+    lengths_sorted = sorted(distance_percent_stats.keys())
+    percents = [distance_percent_stats[L]["percent"] for L in lengths_sorted]
+
+    x_min = lengths_sorted[0]
+    x_max = lengths_sorted[-1]
+
+    fig, ax = plt.subplots(figsize=(6, 4))
+
+    # Ein Punkt pro Länge mit kurzer Trendlinie für die Lesbarkeit.
+    ax.plot(lengths_sorted, percents, linestyle="--", color="#d62728", alpha=0.6)
+    ax.scatter(lengths_sorted, percents, s=40, color="#d62728")
+
+    ax.set_xlabel("Sequenzlänge (bp)")
+    ax.set_ylabel("SNP-Distanz relativ zur mittleren Distanz [%]")
+    ax.set_title("SNP-Embeddings: Distanz in % der mittleren Länge-Distanz")
+    ax.set_xlim(x_min - 1, x_max + 1)
+    ax.grid(True, alpha=0.3)
+
+    fig.tight_layout()
+    fig.savefig(output_path)
+    plt.close(fig)
+    print(f"Plot 'SNP-Distanz in %' gespeichert unter: {output_path}")
+
+
+# ---------------------------------------------------------------------------
+# Mittlere Embedding-Norm pro Länge
+# ---------------------------------------------------------------------------
+
+
+def mean_embedding_norm_by_length(
+    lengths: np.ndarray,
+    embeddings: np.ndarray,
+) -> Dict[int, Dict[str, float]]:
+    """
+    Berechnet die mittlere L2-Norm der Embeddings pro Sequenzlänge.
+
+    Rückgabe:
+      dict:
+        length -> {"mean_norm": float, "n_sequences": int}
+    """
+    results: Dict[int, Dict[str, float]] = {}
+
+    norms = np.linalg.norm(embeddings, axis=1)
+    unique_lengths = np.unique(lengths)
+
+    for L in unique_lengths:
+        idx_L = np.where(lengths == L)[0]
+        if len(idx_L) == 0:
+            continue
+
+        mean_norm = float(norms[idx_L].mean())
+        results[int(L)] = {
+            "mean_norm": mean_norm,
+            "n_sequences": int(len(idx_L)),
+        }
+
+    return results
+
+
+def plot_mean_embedding_norm_by_length(
+    norm_stats: Dict[int, Dict[str, float]],
+    output_path: Path,
+) -> None:
+    """
+    Plottet pro Sequenzlänge die mittlere L2-Norm der Embeddings.
+    """
+    if not norm_stats:
+        print("Keine Norm-Statistiken pro Länge vorhanden – überspringe Plot.")
+        return
+
+    lengths_sorted = sorted(norm_stats.keys())
+    mean_norms = [norm_stats[L]["mean_norm"] for L in lengths_sorted]
+
+    x_min = lengths_sorted[0]
+    x_max = lengths_sorted[-1]
+
+    fig, ax = plt.subplots(figsize=(6, 4))
+
+    # Ein Punkt pro Länge, ergänzt um eine dünne Linie zur Orientierung.
+    ax.plot(lengths_sorted, mean_norms, linestyle="--", color="#2ca02c", alpha=0.6)
+    ax.scatter(lengths_sorted, mean_norms, s=40, color="#2ca02c")
+
+    ax.set_xlabel("Sequenzlänge (bp)")
+    ax.set_ylabel("mittlere Embedding-Norm (L2)")
+    ax.set_title("Seq-Embeddings: mittlere Norm vs. Länge")
+    ax.set_xlim(x_min - 1, x_max + 1)
+    ax.grid(True, alpha=0.3)
+
+    fig.tight_layout()
+    fig.savefig(output_path)
+    plt.close(fig)
+    print(f"Plot 'mittlere Embedding-Norm vs. Länge' gespeichert unter: {output_path}")
